@@ -1,0 +1,7 @@
+services:
+  degerlendirme:
+    build: .
+    env_file: .env          # OPENROUTER_API_KEY buradan gelir
+    volumes:
+      - ./veri:/app/veri          # dataset.xlsx konteynere girer
+      - ./sonuclar:/app/sonuclar  # sonuclar.xlsx bilgisayarına geri yazılır
