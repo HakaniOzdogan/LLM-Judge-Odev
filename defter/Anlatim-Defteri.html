@@ -1,0 +1,708 @@
+<!doctype html>
+<html lang="tr">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>LLM-as-a-Judge Anlatım Defteri</title>
+<style>
+:root{
+  --bg:#fbfaf7; --card:#ffffff; --ink:#1d1f24; --muted:#5d6370; --line:#e3e0d8;
+  --accent:#2f5bd3; --accent-soft:#e8eefc; --ok:#1f8a5b; --ok-soft:#e5f4ec;
+  --warn:#b25e09; --warn-soft:#fdf0e1; --bad:#b3261e; --bad-soft:#fbe9e7;
+  --vio:#6b46c1; --vio-soft:#f0ebfb; --code:#f3f1ec;
+}
+@media (prefers-color-scheme: dark){
+  :root:not([data-theme="light"]){
+    --bg:#15171b; --card:#1d2026; --ink:#e8e9ec; --muted:#a2a8b4; --line:#2e323a;
+    --accent:#7aa2ff; --accent-soft:#1e2a45; --ok:#4cc38a; --ok-soft:#173326;
+    --warn:#f0a35a; --warn-soft:#3a2a17; --bad:#ff7b72; --bad-soft:#3d1d1b;
+    --vio:#b197fc; --vio-soft:#2a2340; --code:#23262d;
+  }
+}
+:root[data-theme="dark"]{
+  --bg:#15171b; --card:#1d2026; --ink:#e8e9ec; --muted:#a2a8b4; --line:#2e323a;
+  --accent:#7aa2ff; --accent-soft:#1e2a45; --ok:#4cc38a; --ok-soft:#173326;
+  --warn:#f0a35a; --warn-soft:#3a2a17; --bad:#ff7b72; --bad-soft:#3d1d1b;
+  --vio:#b197fc; --vio-soft:#2a2340; --code:#23262d;
+}
+*{box-sizing:border-box}
+body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.65 "Segoe UI",system-ui,-apple-system,sans-serif}
+main{max-width:860px;margin:0 auto;padding:32px 16px 80px}
+h1{font-size:2.1rem;line-height:1.2;margin:.2em 0 .3em}
+h2{font-size:1.5rem;margin:2.4em 0 .6em;padding-top:.6em;border-top:2px solid var(--line)}
+h2 .no{display:inline-block;min-width:2.1em;color:var(--accent)}
+h3{font-size:1.12rem;margin:1.6em 0 .4em}
+p,li{color:var(--ink)}
+.muted{color:var(--muted)}
+code{font-family:Consolas,"Cascadia Code",monospace;font-size:.88em;background:var(--code);padding:.1em .35em;border-radius:4px}
+pre{background:var(--code);border:1px solid var(--line);border-radius:8px;padding:12px 14px;overflow-x:auto;font-size:.85rem;line-height:1.5}
+pre code{background:none;padding:0}
+.cover{border:1px solid var(--line);background:var(--card);border-radius:14px;padding:28px 24px;margin-bottom:28px}
+.cover .kicker{font-size:.8rem;letter-spacing:.12em;text-transform:uppercase;color:var(--accent);font-weight:600}
+.toc{columns:2;column-gap:28px;font-size:.95rem;padding-left:1.2em}
+.toc li{break-inside:avoid}
+a{color:var(--accent)}
+.box{border-radius:10px;padding:12px 16px;margin:16px 0;border-left:4px solid}
+.box b.t{display:block;margin-bottom:2px}
+.why{background:var(--accent-soft);border-color:var(--accent)}
+.trap{background:var(--bad-soft);border-color:var(--bad)}
+.tip{background:var(--ok-soft);border-color:var(--ok)}
+.you{background:var(--warn-soft);border-color:var(--warn)}
+.deep{background:var(--vio-soft);border-color:var(--vio)}
+table{border-collapse:collapse;width:100%;margin:12px 0;font-size:.9rem}
+th,td{border:1px solid var(--line);padding:6px 9px;text-align:left;vertical-align:top}
+th{background:var(--code)}
+.tbl{overflow-x:auto}
+figure{margin:20px 0;background:var(--card);border:1px solid var(--line);border-radius:12px;padding:14px;break-inside:avoid}
+figcaption{font-size:.85rem;color:var(--muted);margin-top:8px}
+svg{max-width:100%;height:auto;display:block;margin:0 auto}
+svg text{font-family:"Segoe UI",system-ui,sans-serif;fill:var(--ink)}
+.n-box{fill:var(--card);stroke:var(--line);stroke-width:1.5}
+.n-acc{fill:var(--accent-soft);stroke:var(--accent);stroke-width:1.5}
+.n-ok{fill:var(--ok-soft);stroke:var(--ok);stroke-width:1.5}
+.n-warn{fill:var(--warn-soft);stroke:var(--warn);stroke-width:1.5}
+.n-vio{fill:var(--vio-soft);stroke:var(--vio);stroke-width:1.5}
+.n-bad{fill:var(--bad-soft);stroke:var(--bad);stroke-width:1.5}
+.flow{stroke:var(--accent);stroke-width:2.2;fill:none;stroke-dasharray:6 6;animation:dash 1.2s linear infinite}
+.flow.ok{stroke:var(--ok)} .flow.bad{stroke:var(--bad)} .flow.vio{stroke:var(--vio)}
+@keyframes dash{to{stroke-dashoffset:-24}}
+.pulse{animation:pulse 2s ease-in-out infinite;transform-origin:center;transform-box:fill-box}
+@keyframes pulse{50%{transform:scale(1.06)}}
+.dot{fill:var(--accent)}
+.tok{display:inline-block;padding:3px 6px;margin:2px;border-radius:5px;font-family:Consolas,monospace;font-size:.92rem;opacity:0;animation:tokin .4s forwards}
+@keyframes tokin{to{opacity:1}}
+.t0{background:#dbe6ff;color:#1a2f6b}.t1{background:#ffe3c7;color:#6b3a07}.t2{background:#d7f2e2;color:#0f4d31}.t3{background:#eadcff;color:#3e2373}
+/* interaktif sampling */
+.lab{display:grid;gap:10px}
+.ctrl{display:flex;flex-wrap:wrap;gap:18px;align-items:center;font-size:.92rem}
+.ctrl input[type=range]{width:180px}
+.bars{display:grid;gap:5px}
+.bar{display:grid;grid-template-columns:110px 1fr 64px;align-items:center;gap:8px;font-size:.88rem}
+.bar .track{height:20px;background:var(--code);border-radius:4px;overflow:hidden}
+.bar .fill{height:100%;background:var(--accent);transition:width .35s,background .35s}
+.bar.cut .fill{background:var(--line)}
+.bar.cut{color:var(--muted);text-decoration:line-through}
+.chips{display:flex;flex-wrap:wrap;gap:6px;margin-top:6px}
+.chip{padding:3px 9px;border-radius:999px;background:var(--accent-soft);font-size:.85rem}
+button{font:inherit;padding:5px 12px;border-radius:6px;border:1px solid var(--accent);background:var(--card);color:var(--accent);cursor:pointer}
+.check li{list-style:none;margin-left:-1.2em}
+.check li::before{content:"☐ ";color:var(--accent)}
+.kv{display:grid;grid-template-columns:repeat(auto-fit,minmax(220px,1fr));gap:12px;margin:14px 0}
+.kv div{background:var(--card);border:1px solid var(--line);border-radius:10px;padding:10px 14px}
+.kv b{display:block;color:var(--accent)}
+@media (prefers-reduced-motion: reduce){*{animation:none!important;transition:none!important}.tok{opacity:1}}
+@media print{
+  :root{--bg:#fff;--card:#fff}
+  body{font-size:11pt}
+  main{max-width:none;padding:0}
+  *{animation:none!important;transition:none!important}
+  .tok{opacity:1}
+  h2{break-after:avoid}
+  h3{break-after:avoid}
+  .noprint{display:none}
+  pre,figure,.box,table{break-inside:avoid}
+  .toc{columns:2}
+}
+@page{size:A4;margin:16mm 15mm}
+@media (max-width:600px){.toc{columns:1}.bar{grid-template-columns:80px 1fr 54px}}
+</style>
+</head>
+<body>
+<main>
+
+<section class="cover">
+  <div class="kicker">AI Engineering · Anlatım Defteri</div>
+  <h1>LLM Değerlendirme (LLM-as-a-Judge) ve A/B Testi</h1>
+  <p class="muted">Bu defter ödevi <b>senin yerine yapmaz</b>. Her adımda <i>ne</i> yapılacağını, <i>neden</i> öyle yapıldığını ve
+  nerede hata yapılacağını anlatır. Ödev sırasında “bu neydi, neden böyle?” diye takıldığında buraya dön.</p>
+  <p class="muted" style="font-size:.85rem">Turuncu kutular (<b>Senin kararın</b>) ödev kuralı gereği yapay zekâya bırakamayacağın kısımları işaretler: 3 modelin seçimi, seçim gerekçesi, temperature / top_p analizi.</p>
+  <ol class="toc">
+    <li><a href="#s1">Ödev tek sayfada</a></li>
+    <li><a href="#s2">Kurulan altyapı ve kullanımı</a></li>
+    <li><a href="#s3">Büyük resim: veri akışı</a></li>
+    <li><a href="#s4">Token, bağlam ve maliyet</a></li>
+    <li><a href="#s5">OpenRouter ve sağlayıcılar</a></li>
+    <li><a href="#s6">temperature ve top_p (interaktif)</a></li>
+    <li><a href="#s7">Adım 1 – 100 soruluk veri seti</a></li>
+    <li><a href="#s8">Adım 3 – API çağrısı ve hata yönetimi</a></li>
+    <li><a href="#s9">Adım 4 – LLM-as-a-Judge</a></li>
+    <li><a href="#s10">Deney tasarımı (A/B testi)</a></li>
+    <li><a href="#s11">Excel çıktısı</a></li>
+    <li><a href="#s12">Model raporu nasıl yazılır</a></li>
+    <li><a href="#s13">GitHub ve Docker</a></li>
+    <li><a href="#s14">Sık yapılan hatalar ve kontrol listesi</a></li>
+    <li><a href="#s15">Sözlük</a></li>
+  </ol>
+</section>
+
+<!-- ============================================================ -->
+<h2 id="s1"><span class="no">1</span>Ödev tek sayfada</h2>
+<p>Amaç: <b>Farklı LLM’lerin aynı sorular üzerindeki doğruluğunu, maliyetini ve kararlılığını programla ölçmek.</b>
+Sohbet ekranından elle soru sormak yok. Bir Python betiği soruları modellere gönderir, cevapları toplar. Sonra
+ikinci bir “hakem” model her cevabı puanlar.</p>
+
+<div class="tbl"><table>
+<tr><th>Adım</th><th>Ne yapılacak</th><th>Çıktı</th><th>YZ yardımı?</th></tr>
+<tr><td>1</td><td>100 soru + kesin doğru cevap (Ana Cevap / Ground Truth)</td><td><code>dataset.xlsx</code></td><td>Üretebilir, ama <b>her cevabı sen doğrularsın</b></td></tr>
+<tr><td>2</td><td>OpenRouter’dan en az 3 model seç, gerekçelendir</td><td>Rapor bölümü</td><td><b style="color:var(--warn)">Hayır, tamamen senin</b></td></tr>
+<tr><td>3</td><td>Python + OpenRouter API ile 100 soruyu 3 modele sor; temperature/top_p denemeleri; try-except</td><td>Ham cevaplar</td><td>Kod: evet · Parametre analizi: <b style="color:var(--warn)">senin</b></td></tr>
+<tr><td>4</td><td>Hakem model (temperature=0) ile her cevaba % doğruluk + gerekçe</td><td><code>sonuclar.xlsx</code></td><td>Kod ve prompt: evet</td></tr>
+<tr><td>Teslim</td><td>GitHub repo + gerekçeli model raporu (+ bonus Docker)</td><td>Repo linki</td><td>—</td></tr>
+</table></div>
+
+<div class="box why"><b class="t">Neden önemli?</b>Gerçek bir YZ ürününde “hangi modeli kullanalım?” sorusu bu yöntemle cevaplanır.
+Tek tek denemek 10 soruda işe yarar, 1000 soruda yaramaz. Bu ödevde kurduğun düzen (veri seti, otomatik toplama, otomatik puanlama)
+sektörde <b>eval pipeline</b> olarak geçer. Model değiştiğinde aynı düzeni tekrar çalıştırıp yeni modeli bir dakikada kıyaslarsın.</div>
+
+<!-- ============================================================ -->
+<h2 id="s2"><span class="no">2</span>Kurulan altyapı ve kullanımı</h2>
+<p>Masaüstünde <code>LLM-Judge-Odev</code> klasörü kuruldu. İçinde şunlar var:</p>
+<pre><code>LLM-Judge-Odev/
+├── .venv/                  ← Python 3.12 sanal ortamı (openai, pandas, openpyxl, dotenv, tqdm, requests)
+├── .env.example            ← anahtar şablonu → ".env" olarak kopyala, anahtarını yaz
+├── .gitignore              ← .env ve .venv GitHub'a GİTMEZ
+├── requirements.txt        ← bağımlılık listesi (Docker ve başkaları için)
+├── README.md
+├── Dockerfile, docker-compose.yml, .dockerignore   ← bonus iskeleti
+├── araclar/
+│   ├── baglanti_testi.py   ← anahtar çalışıyor mu? tek soru sorar
+│   └── model_katalogu.py   ← tüm modeller ve sağlayıcıları Excel'e döker
+├── veri/
+│   ├── dataset_sablon.xlsx ← sütun yapısı örneği (Soru | Ana Cevap | Kategori)
+│   └── model_katalogu.xlsx ← OpenRouter'daki ~480 model: fiyat, bağlam, temperature/top_p desteği
+├── sonuclar/               ← sonuclar.xlsx buraya
+├── rapor/                  ← gerekçeli model raporu buraya
+└── defter/                 ← bu defter</code></pre>
+
+<h3>İlk çalıştırma (sırayla)</h3>
+<ol>
+<li><a href="https://openrouter.ai">openrouter.ai</a> → giriş → <b>Keys</b> → yeni anahtar oluştur (<code>sk-or-v1-…</code>).</li>
+<li><code>.env.example</code> dosyasını <code>.env</code> adıyla kopyala, anahtarı yapıştır.</li>
+<li>Klasörde terminal aç: <code>.venv\Scripts\python araclar\baglanti_testi.py</code> → <code>OK … Ankara</code> görmelisin.</li>
+<li><code>.venv\Scripts\python araclar\model_katalogu.py</code> → <code>veri\model_katalogu.xlsx</code> güncellenir. Excel’de filtrele, sırala, karşılaştır.</li>
+<li>Aday bir modelin sağlayıcılarını gör: <code>.venv\Scripts\python araclar\model_katalogu.py qwen/qwen3-32b</code></li>
+</ol>
+
+<div class="box tip"><b class="t">Katalogdan bir bulgu</b>Kurulum sırasında çekilen katalogda <b>477 model</b> vardı ve bunların <b>122 tanesi temperature parametresini desteklemiyor</b>.
+Bunlar genelde “reasoning” (düşünen) modeller. Ödevin temperature analizi kısmı için böyle bir model seçersen deneyin anlamsız olur.
+Excel’deki <code>temperature</code> ve <code>top_p</code> sütunlarına bak.</div>
+
+<div class="box trap"><b class="t">Tuzak: API anahtarı</b>Anahtarı asla koda yazma, asla GitHub’a yükleme. GitHub’daki botlar sızan anahtarları dakikalar içinde bulup kredini harcar.
+Kod anahtarı <code>os.getenv("OPENROUTER_API_KEY")</code> ile <code>.env</code>’den okur. <code>.gitignore</code> bunu zaten engelliyor; yine de push öncesi <code>git status</code>’ta <code>.env</code> görmediğini kontrol et.</div>
+
+<!-- ============================================================ -->
+<h2 id="s3"><span class="no">3</span>Büyük resim: veri akışı</h2>
+<figure>
+<svg viewBox="0 0 820 362" role="img" aria-label="Veri akışı şeması">
+  <rect class="n-acc" x="10" y="130" width="130" height="70" rx="10"/>
+  <text x="75" y="160" text-anchor="middle" font-weight="600">dataset.xlsx</text>
+  <text x="75" y="180" text-anchor="middle" font-size="12">100 soru + Ana Cevap</text>
+
+  <rect class="n-box" x="190" y="130" width="120" height="70" rx="10"/>
+  <text x="250" y="160" text-anchor="middle" font-weight="600">Python betiği</text>
+  <text x="250" y="180" text-anchor="middle" font-size="12">döngü + try/except</text>
+
+  <rect class="n-ok" x="370" y="20" width="140" height="56" rx="10"/>
+  <text x="440" y="45" text-anchor="middle" font-weight="600">Model 1</text>
+  <text x="440" y="63" text-anchor="middle" font-size="12">T=0.0 / 0.7 / 1.0</text>
+  <rect class="n-ok" x="370" y="137" width="140" height="56" rx="10"/>
+  <text x="440" y="162" text-anchor="middle" font-weight="600">Model 2</text>
+  <text x="440" y="180" text-anchor="middle" font-size="12">T=0.0 / 0.7 / 1.0</text>
+  <rect class="n-ok" x="370" y="254" width="140" height="56" rx="10"/>
+  <text x="440" y="279" text-anchor="middle" font-weight="600">Model 3</text>
+  <text x="440" y="297" text-anchor="middle" font-size="12">T=0.0 / 0.7 / 1.0</text>
+
+  <rect class="n-vio pulse" x="560" y="130" width="120" height="70" rx="10"/>
+  <text x="620" y="158" text-anchor="middle" font-weight="600">Hakem</text>
+  <text x="620" y="176" text-anchor="middle" font-size="12">T = 0, JSON</text>
+  <text x="620" y="191" text-anchor="middle" font-size="12">% skor + gerekçe</text>
+
+  <rect class="n-warn" x="720" y="130" width="92" height="70" rx="10"/>
+  <text x="766" y="160" text-anchor="middle" font-weight="600">sonuclar</text>
+  <text x="766" y="178" text-anchor="middle" font-weight="600">.xlsx</text>
+
+  <path class="flow" d="M140 165 H190"/>
+  <path class="flow ok" d="M310 155 C340 155 340 48 370 48"/>
+  <path class="flow ok" d="M310 165 H370"/>
+  <path class="flow ok" d="M310 175 C340 175 340 282 370 282"/>
+  <path class="flow vio" d="M510 48 C540 48 530 150 560 150"/>
+  <path class="flow vio" d="M510 165 H560"/>
+  <path class="flow vio" d="M510 282 C540 282 530 180 560 180"/>
+  <path class="flow" d="M680 165 H720"/>
+  <path class="flow" stroke-dasharray="3 5" d="M75 200 V335 H620 V200" opacity=".55"/>
+  <text x="250" y="352" font-size="12">Hakem soruyu ve Ana Cevabı da görür</text>
+</svg>
+<figcaption>Şekil 1. Tüm sistem. Soru → test edilen modeller → hakem → Excel. Hakem, model cevabını Ana Cevap ile karşılaştırır.</figcaption>
+</figure>
+
+<p>Dikkat: Bu iki aşama <b>ayrı</b> çalıştırılabilir ve öyle yapmalısın. Önce tüm cevapları toplayıp kaydet, sonra hakemi bu kayıt üzerinde çalıştır.
+Hakem prompt’unu değiştirdiğinde 900 cevabı yeniden toplamak zorunda kalmazsın. Bu karar zaman ve para kazandırır.</p>
+
+<div class="kv">
+  <div><b>Test edilen model (aday)</b>Bilgisi ölçülen model. Ucuz/küçük olabilir.</div>
+  <div><b>Hakem model (judge)</b>Puanlayan model. Güçlü, tutarlı, temperature=0. Adaylardan farklı aileden olması iyi olur.</div>
+  <div><b>Ground truth</b>Senin doğruladığın kesin cevap. Tüm sistem buna güvenir; burası yanlışsa puanlar da yanlış olur.</div>
+</div>
+
+<!-- ============================================================ -->
+<h2 id="s4"><span class="no">4</span>Token, bağlam ve maliyet</h2>
+<p>LLM’ler metni kelime kelime değil <b>token</b> token işler. Token, sık geçen harf dizileridir. İngilizcede 1 token ≈ 4 karakter, Türkçede ekler yüzünden bir kelime çoğu zaman 2–4 tokene bölünür.</p>
+<figure>
+<div style="text-align:center;padding:8px 0">
+  <span class="tok t0" style="animation-delay:.1s">Türk</span><span class="tok t1" style="animation-delay:.3s">iye</span><span class="tok t2" style="animation-delay:.5s">'nin</span><span class="tok t3" style="animation-delay:.7s"> başkent</span><span class="tok t0" style="animation-delay:.9s">i</span><span class="tok t1" style="animation-delay:1.1s"> nere</span><span class="tok t2" style="animation-delay:1.3s">sidir</span><span class="tok t3" style="animation-delay:1.5s">?</span>
+</div>
+<figcaption>Şekil 2. Temsili tokenleştirme: 4 kelime yaklaşık 8 token. Gerçek bölünme modele göre değişir; her modelin kendi tokenizer’ı vardır.</figcaption>
+</figure>
+
+<h3>Fiyat nasıl hesaplanır?</h3>
+<p>OpenRouter fiyatları <b>1 milyon token başına</b> verir ve giriş (input/prompt) ile çıkış (output/completion) ayrı fiyatlanır. Çıkış neredeyse her zaman daha pahalıdır.</p>
+<pre><code>maliyet = (giriş_token / 1.000.000) × giriş_fiyatı  +  (çıkış_token / 1.000.000) × çıkış_fiyatı</code></pre>
+
+<p>Rehberdeki örnek fiyatlarla (giriş $0.04, çıkış $0.425) bu ödevin ölçeğini kaba hesaplayalım:</p>
+<div class="tbl"><table>
+<tr><th>Kalem</th><th>Hesap</th><th>Sonuç</th></tr>
+<tr><td>Çağrı sayısı</td><td>100 soru × 3 model × 3 temperature</td><td>900 çağrı</td></tr>
+<tr><td>Giriş token (çağrı başı ~80)</td><td>900 × 80 = 72.000 → 0.072 × $0.04</td><td>≈ $0.003</td></tr>
+<tr><td>Çıkış token (kısa cevap ~30)</td><td>900 × 30 = 27.000 → 0.027 × $0.425</td><td>≈ $0.011</td></tr>
+<tr><td><b>Aynı model “reasoning” ise</b> (~1.500 çıkış)</td><td>900 × 1500 = 1.35M → 1.35 × $0.425</td><td><b>≈ $0.57 (50 kat)</b></td></tr>
+</table></div>
+
+<div class="box deep"><b class="t">İnce nokta: reasoning tokenleri</b>Bazı modeller cevap vermeden önce gizli bir “düşünme” metni üretir. Sen sadece “Ankara” görürsün ama
+1.000+ token faturalanır. Ayrıca bu modellerde <code>temperature</code> çoğu zaman yok sayılır. Model sayfasında “reasoning” etiketi varsa
+dikkat et. OpenRouter’da bazı modellerde düşünme <code>reasoning</code> parametresiyle kısılabilir veya kapatılabilir; modelin destekleyip desteklemediğini dokümandan kontrol et.
+Her çağrıda dönen <code>response.usage</code> alanını kaydet; gerçek token sayısını oradan görürsün.</div>
+
+<div class="box why"><b class="t">Bağlam penceresi (context length)</b>Modelin tek seferde okuyabileceği toplam token. Bu ödevde sorular kısa olduğu için 8K bile yeter.
+Bu yüzden bağlam penceresi seçim kriteri olarak zayıftır. Raporda “uzun vadeli projede belge özetleme gerekirse 128K avantaj olur” gibi bir bağlamda anabilirsin.</div>
+
+<div class="box you"><b class="t">Senin kararın</b>“Bütçe/performans açısından hangisi mantıklı?” sorusunun cevabını sonuçlardan çıkar. Faydalı bir metrik:
+<b>doğru cevap başına maliyet</b> = toplam maliyet ÷ doğru cevap sayısı. %90 doğru ve 10 kat pahalı mı, %80 doğru ve ucuz mu? Kararı sen verirsin.</div>
+
+<!-- ============================================================ -->
+<h2 id="s5"><span class="no">5</span>OpenRouter ve sağlayıcılar (provider)</h2>
+<p>OpenRouter bir <b>aracıdır</b>. Tek API anahtarı ve tek adresle yüzlerce modele ulaşırsın. Arka planda isteğini modeli barındıran bir
+<b>sağlayıcıya</b> (DeepInfra, Together, Alibaba, Fireworks…) iletir. API’si <b>OpenAI uyumludur</b>: <code>openai</code> Python kütüphanesini sadece <code>base_url</code> değiştirerek kullanırsın.</p>
+
+<figure>
+<svg viewBox="0 0 800 260" role="img" aria-label="OpenRouter yönlendirme şeması">
+  <rect class="n-box" x="10" y="100" width="130" height="60" rx="10"/>
+  <text x="75" y="126" text-anchor="middle" font-weight="600">Senin kodun</text>
+  <text x="75" y="145" text-anchor="middle" font-size="12">model="qwen/…"</text>
+  <rect class="n-acc pulse" x="210" y="95" width="150" height="70" rx="10"/>
+  <text x="285" y="125" text-anchor="middle" font-weight="600">OpenRouter</text>
+  <text x="285" y="144" text-anchor="middle" font-size="12">yönlendirici</text>
+  <rect class="n-ok" x="470" y="15" width="170" height="52" rx="10"/>
+  <text x="555" y="38" text-anchor="middle" font-weight="600">DeepInfra · fp8</text>
+  <text x="555" y="56" text-anchor="middle" font-size="12">$0.06 / $0.22 · uptime %100</text>
+  <rect class="n-bad" x="470" y="104" width="170" height="52" rx="10"/>
+  <text x="555" y="127" text-anchor="middle" font-weight="600">Sağlayıcı B</text>
+  <text x="555" y="145" text-anchor="middle" font-size="12">429 / kesinti</text>
+  <rect class="n-warn" x="470" y="193" width="170" height="52" rx="10"/>
+  <text x="555" y="216" text-anchor="middle" font-weight="600">Sağlayıcı C · int4</text>
+  <text x="555" y="234" text-anchor="middle" font-size="12">daha ucuz, kalite ↓ ?</text>
+  <path class="flow" d="M140 130 H210"/>
+  <path class="flow ok" d="M360 120 C420 120 410 41 470 41"/>
+  <path class="flow bad" d="M360 130 H470"/>
+  <path class="flow" stroke-dasharray="2 6" d="M360 140 C420 140 410 219 470 219"/>
+  <text x="660" y="135" font-size="12">✗ fallback →</text>
+  <text x="660" y="44" font-size="12">✓ sabitlenmiş</text>
+</svg>
+<figcaption>Şekil 3. Aynı model farklı sağlayıcılarda farklı fiyat, hız, quantization ve parametre desteğiyle çalışabilir. (Örnek değerler kurulumda <code>qwen/qwen3-32b</code> için çekildi.)</figcaption>
+</figure>
+
+<h3>Neden sağlayıcı sabitlenir?</h3>
+<ul>
+<li><b>Tekrarlanabilirlik:</b> Sağlayıcı A fp8, sağlayıcı C int4 (quantize) çalışıyorsa aynı model adı farklı kalite verebilir. Deneyin ortasında sağlayıcı değişirse A/B testin bozulur.</li>
+<li><b>Parametre desteği:</b> Her sağlayıcı <code>top_p</code>, <code>seed</code> gibi parametreleri desteklemez. Desteklemeyen sağlayıcı parametreni <b>sessizce yok sayabilir</b>.</li>
+<li><b>Maliyet / kararlılık:</b> En ucuz veya en yüksek uptime’lı sağlayıcıyı seçebilirsin.</li>
+</ul>
+
+<pre><code>from openai import OpenAI
+client = OpenAI(base_url="https://openrouter.ai/api/v1", api_key=os.getenv("OPENROUTER_API_KEY"))
+
+r = client.chat.completions.create(
+    model="qwen/qwen3-32b",
+    messages=[...],
+    temperature=0.0, top_p=1.0,
+    extra_body={                       # OpenAI kütüphanesinde olmayan OpenRouter alanları buraya
+        "provider": {
+            "order": ["DeepInfra"],     # önce bu sağlayıcı
+            "allow_fallbacks": False,   # başkasına kaçma
+            "require_parameters": True, # gönderdiğim tüm parametreleri destekleyen sağlayıcı şart
+        }
+    },
+)</code></pre>
+<div class="box deep"><b class="t">İnce nokta: <code>require_parameters</code></b>Bu ödev için önemli bir ayar. Bu ayar olmadan temperature’ı desteklemeyen bir sağlayıcıya düşersen
+T=0 ile T=1 arasında fark göremezsin ve yanlış sonuca varırsın (“temperature etkisizmiş”). Bu ayarla OpenRouter sadece parametreni gerçekten uygulayan sağlayıcıları kullanır.
+Alan adlarını güncel <a href="https://openrouter.ai/docs">OpenRouter dokümanından</a> doğrula.</div>
+
+<div class="box trap"><b class="t">Tuzak: <code>:free</code> modeller</b>Ücretsiz modellerin dakika ve gün başına istek limitleri vardır (hesapta kredi yokken günlük limit düşüktür) ve yoğun saatlerde 429 hatası verirler.
+900 çağrılık deneyde bu limit hızla dolar. Ücretsiz model seçersen bekleme (sleep) ve yeniden deneme mantığı zorunlu olur. Güncel limitleri dokümandan kontrol et.</div>
+
+<div class="box you"><b class="t">Senin kararın: 3 model seçerken bakacağın yerler</b>
+<ul style="margin:.3em 0">
+<li>Model sayfası → fiyat (input/output), bağlam, “Providers” sekmesi (sağlayıcı sayısı, uptime, quantization)</li>
+<li><code>model_katalogu.xlsx</code> → <code>temperature</code>/<code>top_p</code> sütunu TRUE mu?</li>
+<li>Çeşitlilik: farklı boyut (ör. 7B · 30B · 100B+), farklı fiyat sınıfı (ücretsiz · ucuz · orta), mümkünse farklı aile</li>
+<li>Türkçe sorular soracaksan Türkçe başarısı (küçük modeller Türkçede belirgin şekilde zayıflar; bu da raporda yazılabilecek bir bulgudur)</li>
+</ul></div>
+
+<!-- ============================================================ -->
+<h2 id="s6"><span class="no">6</span>temperature ve top_p: gerçekte ne yapıyorlar?</h2>
+<p>Model her adımda <b>bir sonraki token için olasılık dağılımı</b> üretir. Ham skorlara <i>logit</i> denir. Bu ikisi, o dağılımdan nasıl seçim yapılacağını belirler:</p>
+<div class="kv">
+  <div><b>temperature (T)</b>Dağılımı keskinleştirir veya düzleştirir: <code>p<sub>i</sub> = softmax(logit<sub>i</sub> / T)</code>. T→0: hep en olası token (greedy). T büyüdükçe düşük olasılıklı tokenlerin şansı artar.</div>
+  <div><b>top_p (nucleus)</b>Olasılıkları büyükten küçüğe sırala, toplamı p’ye ulaşana kadar olanları tut, gerisini at. p=1: hiçbir şey atılmaz. p=0.5: sadece en olası çekirdek kalır.</div>
+</div>
+
+<figure class="lab">
+  <div class="ctrl">
+    <label>temperature: <b id="tv">0.70</b><br><input id="t" type="range" min="0" max="2" step="0.05" value="0.7" aria-label="temperature"></label>
+    <label>top_p: <b id="pv">1.00</b><br><input id="p" type="range" min="0.05" max="1" step="0.05" value="1" aria-label="top_p"></label>
+    <button id="s" class="noprint" type="button">10 kez örnekle</button>
+  </div>
+  <div class="muted" style="font-size:.88rem">Soru: “Türkiye’nin başkenti neresidir?” → modelin ilk cevap tokeni için örnek dağılım</div>
+  <div id="bars" class="bars"></div>
+  <div class="chips" id="chips"></div>
+  <figcaption>Şekil 4. Kaydırıcılarla oyna (HTML sürümünde). T=0’da hep “Ankara”. T=1.5’te arada “İstanbul” çıkar. top_p’yi düşürünce üstü çizili tokenler hiç seçilemez. Logit değerleri temsilidir.</figcaption>
+</figure>
+
+<h3>Bu ödev için çıkarımlar</h3>
+<ul>
+<li><b>Bilgi sorularında</b> tek doğru cevap var, yaratıcılık istenmez. Düşük T tutarlılığı artırır. Yüksek T ile model bildiği bir şeyde bile arada yanlış token seçip yoldan çıkabilir.</li>
+<li><b>T=0 her zaman %100 deterministik değildir.</b> GPU’da paralel toplama sırası, batch’ler ve MoE yönlendirmesi yüzünden aynı istek nadiren farklı cevap verebilir. Bunu gözlemlersen raporda yaz; bu değerli bir bulgu.</li>
+<li><b>İkisini aynı anda değiştirme.</b> Önce top_p=1 sabit, T’yi değiştir. Sonra T sabit, top_p’yi değiştir. Aksi halde hangi etkinin hangisinden geldiğini ayıramazsın (kontrollü deney).</li>
+<li><b>Tutarlılığı ölçmek için tekrar gerekir.</b> Her soruyu aynı ayarla 1 kez sormak doğruluğu ölçer. 3 kez sorup cevapların aynı olup olmadığına bakmak <i>kararlılığı</i> ölçer. Ödev “kararlılık” kelimesini kullanıyor.</li>
+</ul>
+<div class="box you"><b class="t">Senin kararın</b>Hangi T / top_p değerlerini deneyeceğin, kaç tekrar yapacağın ve sonuçları nasıl yorumlayacağın. Defter mekanizmayı anlatır; analiz senin.</div>
+
+<!-- ============================================================ -->
+<h2 id="s7"><span class="no">7</span>Adım 1: 100 soruluk veri seti</h2>
+<p>Bütün değerlendirme bu dosyaya dayanır. Veri seti kötüyse geri kalan her şey de güvenilmez olur.</p>
+<h3>İyi bir soru nasıl olur?</h3>
+<div class="tbl"><table>
+<tr><th>Kriter</th><th>İyi ✓</th><th>Kötü ✗</th><th>Neden</th></tr>
+<tr><td>Tek, kesin cevap</td><td>“Everest kaç metredir?” → 8.849 m</td><td>“En iyi futbolcu kimdir?”</td><td>Hakem neye göre puanlayacak?</td></tr>
+<tr><td>Zamandan bağımsız</td><td>“1453’te İstanbul’u kim fethetti?”</td><td>“Şu anki Dünya Kupası şampiyonu?”</td><td>Modelin eğitim tarihi bilgisi kesilir (knowledge cutoff)</td></tr>
+<tr><td>Web araması gerektirmez</td><td>Ansiklopedik, tarih, coğrafya, spor, bilim</td><td>Kişisel bilgi, yerel haber</td><td>Ödev kuralı</td></tr>
+<tr><td>Belirsiz değil</td><td>“Fransa’nın başkenti?”</td><td>“Nüfusu en kalabalık şehir?” (hangi ülke? hangi tanım?)</td><td>Model doğru ama farklı yorumla cevap verir</td></tr>
+</table></div>
+
+<h3>Zorluk ve çeşitlilik dengesi</h3>
+<p>100 sorunun hepsi “başkent neresi” düzeyindeyse 3 model de %100 alır ve <b>A/B testi hiçbir şey ayırt etmez</b> (tavan etkisi).
+Kolay, orta ve zor soruları karıştır. Zor sorulara örnek: az bilinen tarihler, çok parçalı cevaplar (“Ümit Davala hangi takımlarda oynadı?”), sayısal bilgiler.
+Kategori sütunu ekle. Sonuçları kategoriye göre kırınca güzel bulgular çıkar (ör. “Model 2 sporda zayıf”).</p>
+
+<div class="box deep"><b class="t">Çok parçalı cevaplar ve kısmi puan</b>Rehberdeki %80 gibi skorlar buradan gelir. Ana Cevap “Galatasaray, Milan, Inter, Werder Bremen” ise ve model 4 takımdan 3’ünü saydıysa kısmi puan verilir.
+Bu tür sorularda Ana Cevap’ı eksiksiz ve net yaz. Hakem eksik listeyi doğru bilgiyle karşılaştırarak puan verir.</div>
+
+<div class="box trap"><b class="t">Tuzak: YZ’ye ürettirilen cevaplar</b>Soruları YZ’ye ürettirmek serbest, ama YZ’ler sayısal değerleri, tarihleri ve kadroları sık uydurur (hallucination).
+Ana Cevap’ı yanlış yazarsan doğru cevap veren modele 0 puan verilir. Her satırı güvenilir bir kaynaktan doğrula. Dosyaya “Kaynak” sütunu eklemek iyi bir pratik.</div>
+
+<!-- ============================================================ -->
+<h2 id="s8"><span class="no">8</span>Adım 3: API çağrısı, cevap yapısı ve hata yönetimi</h2>
+<h3>Mesaj yapısı</h3>
+<p>Chat API’sine bir mesaj listesi gönderirsin. <code>system</code> modelin davranışını, <code>user</code> soruyu taşır.</p>
+<pre><code>messages = [
+  {"role": "system", "content": "Soruları kısa ve net cevapla. Açıklama yapma."},
+  {"role": "user",   "content": soru},
+]</code></pre>
+<div class="box why"><b class="t">Sistem prompt’u neden önemli?</b>Bütün modellere <b>aynı</b> sistem prompt’unu ver. Aksi halde modelleri değil prompt’ları kıyaslarsın.
+“Kısa cevap ver” demek hem maliyeti düşürür hem de hakemin işini kolaylaştırır.</div>
+
+<h3>Dönen cevaptan ne kaydedilir?</h3>
+<div class="tbl"><table>
+<tr><th>Alan</th><th>Ne işe yarar</th></tr>
+<tr><td><code>r.choices[0].message.content</code></td><td>Cevap metni (boş veya <code>None</code> olabilir!)</td></tr>
+<tr><td><code>r.usage.prompt_tokens / completion_tokens</code></td><td>Maliyet hesabı</td></tr>
+<tr><td><code>r.model</code>, <code>r.provider</code> (varsa)</td><td>Gerçekte hangi model ve sağlayıcının cevap verdiği</td></tr>
+<tr><td>Süre (time.perf_counter farkı)</td><td>Gecikme (latency) karşılaştırması</td></tr>
+<tr><td><code>r.choices[0].finish_reason</code></td><td><code>"length"</code> ise cevap max_tokens’ta kesilmiştir</td></tr>
+</table></div>
+
+<h3>Hata yönetimi: neler ters gidebilir?</h3>
+<figure>
+<svg viewBox="0 0 800 170" role="img" aria-label="Yeniden deneme zaman çizelgesi">
+  <line x1="20" y1="90" x2="780" y2="90" stroke="var(--line)" stroke-width="2"/>
+  <circle cx="60" cy="90" r="14" class="n-bad"/><text x="60" y="95" text-anchor="middle" font-size="12">✗</text>
+  <text x="60" y="130" text-anchor="middle" font-size="12">1. deneme · 429</text>
+  <path class="flow bad" d="M76 90 H160"/><text x="118" y="75" text-anchor="middle" font-size="12">bekle 2s</text>
+  <circle cx="176" cy="90" r="14" class="n-bad"/><text x="176" y="95" text-anchor="middle" font-size="12">✗</text>
+  <text x="176" y="130" text-anchor="middle" font-size="12">2. deneme · 503</text>
+  <path class="flow bad" d="M192 90 H360"/><text x="276" y="75" text-anchor="middle" font-size="12">bekle 4s</text>
+  <circle cx="376" cy="90" r="14" class="n-bad"/><text x="376" y="95" text-anchor="middle" font-size="12">✗</text>
+  <text x="376" y="130" text-anchor="middle" font-size="12">3. deneme · boş yanıt</text>
+  <path class="flow ok" d="M392 90 H700"/><text x="546" y="75" text-anchor="middle" font-size="12">bekle 8s (üstel geri çekilme)</text>
+  <circle cx="716" cy="90" r="14" class="n-ok pulse"/><text x="716" y="95" text-anchor="middle" font-size="12">✓</text>
+  <text x="716" y="130" text-anchor="middle" font-size="12">4. deneme · OK</text>
+</svg>
+<figcaption>Şekil 5. Üstel geri çekilme (exponential backoff): her başarısız denemeden sonra bekleme süresi ikiye katlanır. Sınırsız deneme yapılmaz; ör. 4 denemeden sonra “HATA” yazılıp bir sonraki soruya geçilir.</figcaption>
+</figure>
+<div class="tbl"><table>
+<tr><th>Hata</th><th>Anlamı</th><th>Doğru tepki</th></tr>
+<tr><td>429 Too Many Requests</td><td>Hız limiti</td><td>Bekle, tekrar dene</td></tr>
+<tr><td>500/502/503</td><td>Sağlayıcı arızası</td><td>Bekle, tekrar dene (fallback açıksa OpenRouter başka sağlayıcı dener)</td></tr>
+<tr><td>401</td><td>Anahtar yanlış</td><td>Tekrar deneme anlamsız, dur</td></tr>
+<tr><td>402</td><td>Kredi bitti</td><td>Dur, kredi yükle</td></tr>
+<tr><td>400</td><td>Parametre/model adı hatalı</td><td>Kodunu düzelt</td></tr>
+<tr><td>Timeout</td><td>Cevap gelmedi</td><td><code>timeout=</code> ver, tekrar dene</td></tr>
+<tr><td>content boş / None</td><td>Hata değil gibi görünür ama cevap yok</td><td>Kontrol et, boşsa tekrar dene</td></tr>
+</table></div>
+<pre><code># Kalıp (tam çözüm değil, mantık):
+for deneme in range(4):
+    try:
+        r = client.chat.completions.create(..., timeout=60)
+        metin = (r.choices[0].message.content or "").strip()
+        if metin:
+            break                      # başarılı
+    except Exception as e:             # openai.RateLimitError, APIStatusError, APITimeoutError ...
+        son_hata = e
+    time.sleep(2 ** (deneme + 1))      # 2, 4, 8, 16 sn
+else:
+    metin = f"HATA: {son_hata}"        # döngü break olmadan bitti → kaydet, devam et</code></pre>
+
+<div class="box trap"><b class="t">Tuzak: ilerlemeyi kaybetmek</b>900 çağrı 20–60 dakika sürebilir. 850. çağrıda program çökerse ve sonuçları sadece sonda kaydediyorsan hepsi gider.
+Her N cevapta bir dosyaya yaz (checkpoint). Yeniden başlatınca zaten cevaplanmış satırları atla. Bu kalıbı baştan kurmak çok zaman kazandırır.</div>
+
+<!-- ============================================================ -->
+<h2 id="s9"><span class="no">9</span>Adım 4: LLM-as-a-Judge (hakem model)</h2>
+<p>300+ cevabı gözle okumak ölçeklenmez. Fikir şu: güçlü bir model, bir referans cevap verildiğinde <b>anlam eşleşmesini</b> insana yakın bir isabetle değerlendirebilir.
+Basit metin karşılaştırması (<code>"Ankara" in cevap</code>) işe yaramaz. “Türkiye’nin başkenti Ankara’dır” ile “Başkent Ankara değil, İstanbul’dur” ikisi de “Ankara” içerir.</p>
+
+<figure>
+<svg viewBox="0 0 800 230" role="img" aria-label="Hakem model akışı">
+  <rect class="n-acc" x="10" y="15" width="200" height="50" rx="8"/><text x="110" y="45" text-anchor="middle">Soru</text>
+  <rect class="n-ok" x="10" y="90" width="200" height="50" rx="8"/><text x="110" y="113" text-anchor="middle">Ana Cevap</text><text x="110" y="130" text-anchor="middle" font-size="12">“Ankara”</text>
+  <rect class="n-warn" x="10" y="165" width="200" height="50" rx="8"/><text x="110" y="187" text-anchor="middle">Model Cevabı</text><text x="110" y="204" text-anchor="middle" font-size="11">“Türkiye Cumhuriyeti’nin başkenti Ankara’dır.”</text>
+  <path class="flow" d="M210 40 C260 40 260 115 300 115"/>
+  <path class="flow ok" d="M210 115 H300"/>
+  <path class="flow" style="stroke:var(--warn)" d="M210 190 C260 190 260 115 300 115"/>
+  <rect class="n-vio pulse" x="300" y="70" width="190" height="90" rx="12"/>
+  <text x="395" y="102" text-anchor="middle" font-weight="600">Hakem LLM</text>
+  <text x="395" y="122" text-anchor="middle" font-size="12">temperature = 0</text>
+  <text x="395" y="140" text-anchor="middle" font-size="12">rubrik + JSON formatı</text>
+  <path class="flow vio" d="M490 115 H540"/>
+  <rect class="n-box" x="540" y="65" width="250" height="100" rx="8"/>
+  <text x="555" y="92" font-family="Consolas,monospace" font-size="13">{</text>
+  <text x="570" y="112" font-family="Consolas,monospace" font-size="13">"skor": 100,</text>
+  <text x="570" y="132" font-family="Consolas,monospace" font-size="13">"gerekce": "Anlamca aynı"</text>
+  <text x="555" y="152" font-family="Consolas,monospace" font-size="13">}</text>
+</svg>
+<figcaption>Şekil 6. Hakeme üç şey gider, geriye ayrıştırılabilir (parse edilebilir) bir JSON döner.</figcaption>
+</figure>
+
+<h3>İyi bir hakem prompt’unun parçaları</h3>
+<ol>
+<li><b>Rol:</b> “Sen tarafsız bir sınav değerlendiricisisin.”</li>
+<li><b>Girdiler net etiketli:</b> <code>[SORU]</code>, <code>[REFERANS CEVAP]</code>, <code>[DEĞERLENDİRİLEN CEVAP]</code></li>
+<li><b>Rubrik (puan cetveli):</b> Ne zaman 100, ne zaman 50, ne zaman 0? Örn. 100 = anlamca tam eşleşme · 50–90 = çok parçalı cevapta kısmi doğru · 0 = yanlış veya çelişkili. Rubrik olmazsa hakem her seferinde farklı ölçüt uydurur.</li>
+<li><b>Kurallar:</b> “Uzunluk, üslup, dil farkı puanı etkilemez. Referansta olmayan ama yanlış bir ek bilgi varsa puan düşür.”</li>
+<li><b>Çıktı formatı:</b> “Sadece şu JSON’u döndür: {"skor": 0-100, "gerekce": "en fazla 1 cümle"}”</li>
+<li>(İsteğe bağlı) <b>1–2 örnek</b> (few-shot): biri tam doğru, biri kısmi.</li>
+</ol>
+
+<div class="box deep"><b class="t">Hakemin bilinen önyargıları (bias)</b>
+<ul style="margin:.3em 0">
+<li><b>Uzunluk önyargısı:</b> Uzun ve kendinden emin cevaplara fazla puan verme eğilimi. → Kuralda açıkça yasakla.</li>
+<li><b>Kendini kayırma (self-preference):</b> Hakem kendi ailesinden modelin cevabını daha çok beğenebilir. → Hakemi test edilen modellerden farklı aileden seç.</li>
+<li><b>Hoşgörü (leniency):</b> Yanlışa “kısmen doğru” deme. → Rubriği sıkı yaz.</li>
+<li><b>Kendi bilgisini kullanma:</b> Hakem, Ana Cevap yerine kendi bildiğine göre puanlayabilir. → “Sadece REFERANS CEVABA göre değerlendir” de.</li>
+</ul></div>
+
+<div class="box tip"><b class="t">Hakemi de doğrula (meta-değerlendirme)</b>Hakem de bir LLM ve hata yapar. Rastgele 20 cevabı sen elle puanla, hakemin puanlarıyla karşılaştır.
+Örneğin “20’nin 19’unda aynı karar” → %95 uyum. Bunu raporda bir cümleyle yazmak çalışmanın güvenilirliğini ciddi şekilde artırır.</div>
+
+<div class="box trap"><b class="t">Tuzak: JSON ayrıştırma</b>Model bazen JSON’u <code>```json … ```</code> içine sarar veya önüne metin ekler. <code>json.loads</code> patlar.
+Ayrıştırmayı try-except içine al. İlk <code>{</code> ile son <code>}</code> arasını kesip dene. Model destekliyorsa <code>response_format={"type":"json_object"}</code> (yapılandırılmış çıktı) kullan. Hiçbiri olmazsa skoru boş bırak, tahmin etme.</div>
+
+<!-- ============================================================ -->
+<h2 id="s10"><span class="no">10</span>Deney tasarımı: A/B testi gerçekte ne demek?</h2>
+<p>A/B testi: <b>tek bir şeyi değiştirip</b> geri kalan her şeyi sabit tutarak iki (veya daha fazla) seçeneği aynı ölçütle kıyaslamak.</p>
+<figure>
+<svg viewBox="0 0 640 210" role="img" aria-label="Deney matrisi">
+  <text x="140" y="24" text-anchor="middle" font-weight="600">T = 0.0</text>
+  <text x="290" y="24" text-anchor="middle" font-weight="600">T = 0.7</text>
+  <text x="440" y="24" text-anchor="middle" font-weight="600">T = 1.0</text>
+  <text x="560" y="24" text-anchor="middle" font-weight="600" fill="var(--muted)">top_p deneyi</text>
+  <g font-size="13">
+   <text x="10" y="70">Model 1</text><text x="10" y="125">Model 2</text><text x="10" y="180">Model 3</text>
+  </g>
+  <g>
+   <rect class="n-ok" x="80" y="45" width="120" height="40" rx="6"/><rect class="n-ok" x="230" y="45" width="120" height="40" rx="6"/><rect class="n-ok" x="380" y="45" width="120" height="40" rx="6"/>
+   <rect class="n-ok" x="80" y="100" width="120" height="40" rx="6"/><rect class="n-ok" x="230" y="100" width="120" height="40" rx="6"/><rect class="n-ok" x="380" y="100" width="120" height="40" rx="6"/>
+   <rect class="n-ok" x="80" y="155" width="120" height="40" rx="6"/><rect class="n-ok" x="230" y="155" width="120" height="40" rx="6"/><rect class="n-ok" x="380" y="155" width="120" height="40" rx="6"/>
+   <rect class="n-box" x="515" y="45" width="90" height="150" rx="6" stroke-dasharray="4 4"/>
+  </g>
+  <g font-size="12" text-anchor="middle">
+   <text x="140" y="70">100 çağrı</text><text x="290" y="70">100 çağrı</text><text x="440" y="70">100 çağrı</text>
+   <text x="140" y="125">100 çağrı</text><text x="290" y="125">100 çağrı</text><text x="440" y="125">100 çağrı</text>
+   <text x="140" y="180">100 çağrı</text><text x="290" y="180">100 çağrı</text><text x="440" y="180">100 çağrı</text>
+   <text x="560" y="115" fill="var(--muted)">T sabit,</text><text x="560" y="132" fill="var(--muted)">p değişir</text>
+  </g>
+</svg>
+<figcaption>Şekil 7. Satırlar arası fark = model etkisi (A/B). Sütunlar arası fark = temperature etkisi. 9 hücre × 100 = 900 cevap, +900 hakem çağrısı.</figcaption>
+</figure>
+
+<h3>Sabit tutulması gerekenler</h3>
+<p>Aynı sorular · aynı sistem prompt’u · aynı max_tokens · aynı sağlayıcı · aynı hakem ve hakem prompt’u. Bunlardan biri değişirse karşılaştırma geçersiz olur.</p>
+
+<h3>Raporlanabilecek metrikler</h3>
+<div class="tbl"><table>
+<tr><th>Metrik</th><th>Nasıl hesaplanır</th><th>Ne söyler</th></tr>
+<tr><td>Ortalama doğruluk</td><td>100 skorun ortalaması</td><td>Genel başarı</td></tr>
+<tr><td>Tam doğru oranı</td><td>skor = 100 olanların yüzdesi</td><td>Kısmi puanların gizlediğini gösterir</td></tr>
+<tr><td>Kararlılık</td><td>Aynı ayarla tekrarlarda skorların standart sapması / aynı cevap oranı</td><td>Model ne kadar güvenilir</td></tr>
+<tr><td>Hata oranı</td><td>“HATA” dönen çağrı / toplam</td><td>Sağlayıcı kararlılığı</td></tr>
+<tr><td>Ortalama gecikme</td><td>saniye / çağrı</td><td>Kullanıcı deneyimi</td></tr>
+<tr><td>Doğru cevap başına maliyet</td><td>toplam $ / doğru sayısı</td><td>Bütçe kararı</td></tr>
+</table></div>
+<div class="box why"><b class="t">Küçük farklara dikkat</b>100 soruda %86’ya karşı %84 fark sadece 2 soru eder ve şans eseri olabilir. “Model 1 açıkça daha iyi” demeden önce farkın büyüklüğüne ve tekrarlarda korunup korunmadığına bak. Raporda bu temkini göstermek olgunluk işaretidir.</div>
+
+<!-- ============================================================ -->
+<h2 id="s11"><span class="no">11</span>Excel çıktısı (sonuclar.xlsx)</h2>
+<p>Rehberin istediği <b>geniş (wide)</b> format: her soru bir satır, her model için “Cevap” ve “Doğruluk” sütun çifti.</p>
+<div class="tbl"><table>
+<tr><th>Soru</th><th>Ana Cevap</th><th>M1 Cevabı (T=0)</th><th>M1 Doğruluk</th><th>M2 Cevabı (T=0)</th><th>M2 Doğruluk</th><th>…</th></tr>
+<tr><td>Türkiye’nin başkenti neresidir?</td><td>Ankara</td><td>Türkiye Cumhuriyeti’nin başkenti Ankara’dır.</td><td>%100</td><td>Ankara</td><td>%100</td><td>…</td></tr>
+</table></div>
+<div class="box tip"><b class="t">Profesyonel ipucu: önce uzun (long) format</b>Çalışırken veriyi “bir satır = bir çağrı” şeklinde tut:
+<code>soru_id | model | temperature | top_p | tekrar | cevap | skor | gerekce | token_in | token_out | sure</code>.
+Analiz (ortalama, gruplama) bu formatta çok kolaydır. Teslim için <code>pandas.pivot_table</code> veya <code>pivot</code> ile rehberdeki geniş tabloya dönüştürürsün. Birden fazla sayfa (sheet) da kullanabilirsin: “Sonuçlar”, “Özet”, “Ham Veri”.</div>
+
+<!-- ============================================================ -->
+<h2 id="s12"><span class="no">12</span>Gerekçeli model raporu nasıl yazılır?</h2>
+<p>Bu bölüm notunun en çok “senin” olan kısmı. Aşağıdakiler cevap değil, <b>cevaplaman gereken sorulardır</b>:</p>
+<ol>
+<li><b>Seçim:</b> Hangi 3 modeli seçtim? (id, boyut, aile)</li>
+<li><b>Maliyet:</b> Her birinin input/output fiyatı ne? Neden bu fiyat sınıflarını yan yana koydum?</li>
+<li><b>Sağlayıcı:</b> Hangi sağlayıcıyı neden sabitledim? (fiyat, uptime, quantization, parametre desteği). Sabitlemediysem neden?</li>
+<li><b>Parametre:</b> temperature/top_p’yi destekliyor mu? Nasıl doğruladım?</li>
+<li><b>Sonuç tablosu:</b> Model × ayar başına ortalama doğruluk, kararlılık, hata, maliyet.</li>
+<li><b>temperature/top_p analizi:</b> Ne gözlemledim? Beklentimle örtüştü mü? Neden?</li>
+<li><b>Hakem:</b> Hangi modeli neden seçtim? Elle kontrol ettiğim örneklerde uyum ne çıktı?</li>
+<li><b>Karar:</b> Projem için hangi model + ayar en uygun? Hangi koşulda kararım değişirdi (ör. bütçe 10 kat artarsa)?</li>
+<li><b>Sınırlılıklar:</b> 100 soru az mı? Türkçe/İngilizce etkisi? Hakem hatası?</li>
+</ol>
+<div class="box you"><b class="t">Senin kararın</b>Rapor <code>rapor/</code> klasörüne gider (Markdown, Word veya PDF). GitHub’da <code>README.md</code> içine kısa bir özet ve rapora link koymak değerlendiren için kolaylık sağlar.</div>
+
+<!-- ============================================================ -->
+<h2 id="s13"><span class="no">13</span>GitHub ve Docker (bonus)</h2>
+<h3>GitHub’a yükleme</h3>
+<p>Klasörde <code>git init</code> yapıldı (dal: <code>main</code>), dosyalar hazırlandı (stage) ama commit atılmadı. Akış:</p>
+<pre><code>git status                              # .env listede OLMAMALI
+git add -A
+git commit -m "Veri seti ve betikler"
+# github.com → New repository (boş, README eklemeden) → verdiği adresi kopyala
+git remote add origin https://github.com/KULLANICI/REPO.git
+git push -u origin main</code></pre>
+<p>Teslim edilecekler: <code>veri/dataset.xlsx</code>, <code>sonuclar/sonuclar.xlsx</code>, tüm <code>.py</code> dosyaları, rapor. <b>Gitmeyecekler:</b> <code>.env</code>, <code>.venv/</code>.</p>
+
+<h3>Docker: ne, neden?</h3>
+<figure>
+<svg viewBox="0 0 720 200" role="img" aria-label="Docker katmanları">
+  <rect class="n-box" x="20" y="140" width="300" height="40" rx="6"/><text x="170" y="165" text-anchor="middle">python:3.12-slim (temel imaj)</text>
+  <rect class="n-acc" x="20" y="95" width="300" height="40" rx="6"/><text x="170" y="120" text-anchor="middle">pip install -r requirements.txt</text>
+  <rect class="n-ok" x="20" y="50" width="300" height="40" rx="6"/><text x="170" y="75" text-anchor="middle">COPY . .  (senin kodun)</text>
+  <rect class="n-vio" x="20" y="8" width="300" height="38" rx="6"/><text x="170" y="32" text-anchor="middle">CMD python ...</text>
+  <rect class="n-warn" x="430" y="30" width="270" height="50" rx="8"/><text x="565" y="52" text-anchor="middle">.env → env_file</text><text x="565" y="70" text-anchor="middle" font-size="12">anahtar çalışırken verilir, imaja gömülmez</text>
+  <rect class="n-warn" x="430" y="110" width="270" height="50" rx="8"/><text x="565" y="132" text-anchor="middle">./veri ↔ /app/veri (volume)</text><text x="565" y="150" text-anchor="middle" font-size="12">Excel dosyaları bilgisayarına geri yazılır</text>
+  <path class="flow" style="stroke:var(--warn)" d="M430 55 H330"/>
+  <path class="flow" style="stroke:var(--warn)" d="M430 135 H330"/>
+</svg>
+<figcaption>Şekil 8. İmaj katmanları (aşağıdan yukarı) ve çalışma anında dışarıdan bağlananlar.</figcaption>
+</figure>
+<p>Docker uygulamanı Python sürümü ve kütüphaneleriyle birlikte paketler. “Benim bilgisayarımda çalışıyordu” sorunu ortadan kalkar; hoca <code>docker compose up --build</code> ile aynı ortamda çalıştırır.
+Klasörde <code>Dockerfile</code> ve <code>docker-compose.yml</code> iskeleti hazır. Ana betiğini yazınca Dockerfile’daki <code>CMD</code> satırında dosya adını değiştirmen yeterli. Bilgisayarında Docker 29.4 kurulu.</p>
+<div class="box trap"><b class="t">Tuzak</b>Dockerfile içine <code>ENV OPENROUTER_API_KEY=…</code> yazma. İmajı paylaşan herkes anahtarını görür. <code>.dockerignore</code> zaten <code>.env</code>’i imaj dışında tutuyor.</div>
+
+<!-- ============================================================ -->
+<h2 id="s14"><span class="no">14</span>Sık yapılan hatalar ve kontrol listesi</h2>
+<div class="tbl"><table>
+<tr><th>Hata</th><th>Belirti</th><th>Önlem</th></tr>
+<tr><td>Ana Cevap yanlış</td><td>Doğru cevaplar 0 puan alıyor</td><td>Her satırı kaynaktan doğrula</td></tr>
+<tr><td>Temperature desteklenmiyor</td><td>T=0 ve T=1 sonuçları birebir aynı</td><td>Katalogda kontrol et, <code>require_parameters</code> kullan</td></tr>
+<tr><td>Reasoning modeli</td><td>Fatura beklenenden 50 kat yüksek, cevaplar yavaş</td><td>usage’ı kaydet, ilk 5 soruda maliyete bak</td></tr>
+<tr><td>Sorular çok kolay</td><td>Her model %98+</td><td>Zor soru ekle</td></tr>
+<tr><td>max_tokens çok düşük</td><td><code>finish_reason="length"</code>, kesik cevap</td><td>Bilgi sorusu için ~200 yeterli; reasoning modelde daha fazla</td></tr>
+<tr><td>Sonuçlar sonda kaydediliyor</td><td>Çökme = her şey kayıp</td><td>Checkpoint</td></tr>
+<tr><td>Hakem test edilenle aynı model</td><td>Kendi cevabını kayırır</td><td>Farklı ailede güçlü bir hakem</td></tr>
+<tr><td>Anahtar GitHub’da</td><td>Kredi bir anda biter</td><td>.env + .gitignore</td></tr>
+</table></div>
+
+<div class="box tip"><b class="t">Tavsiye edilen çalışma sırası</b>Önce <b>5 soruyla</b> uçtan uca tüm sistemi çalıştır (topla → hakem → Excel). Her şey doğruysa 100’e çıkar.
+Hataları ucuz ve hızlı yakalamanın en iyi yolu bu.</div>
+
+<h3>Teslim kontrol listesi</h3>
+<ul class="check">
+<li>dataset.xlsx: 100 soru, her Ana Cevap elle doğrulandı</li>
+<li>3 model seçildi; fiyat, sağlayıcı, parametre desteği not edildi</li>
+<li>Toplama betiği: try-except, retry, checkpoint, aynı sistem prompt’u</li>
+<li>En az 3 temperature değeri (ve top_p denemesi) çalıştırıldı</li>
+<li>Hakem: temperature=0, rubrikli prompt, JSON, parse hatasına dayanıklı</li>
+<li>20 cevap elle kontrol edildi, hakem uyumu hesaplandı</li>
+<li>sonuclar.xlsx rehberdeki sütun yapısında</li>
+<li>Gerekçeli model raporu yazıldı</li>
+<li>GitHub’a pushlandı, .env gitmedi</li>
+<li>(Bonus) <code>docker compose up --build</code> çalışıyor</li>
+</ul>
+
+<!-- ============================================================ -->
+<h2 id="s15"><span class="no">15</span>Sözlük</h2>
+<div class="tbl"><table>
+<tr><th>Terim</th><th>Anlamı</th></tr>
+<tr><td>LLM</td><td>Büyük Dil Modeli. Metin üreten yapay sinir ağı.</td></tr>
+<tr><td>Token</td><td>Modelin işlediği metin parçası. Fiyatlandırmanın birimi.</td></tr>
+<tr><td>Parametre (7B, 27B…)</td><td>Modeldeki ağırlık sayısı (milyar). Genelde büyük = daha bilgili, daha pahalı. Not: API’deki temperature gibi “parametreler” ile karıştırma.</td></tr>
+<tr><td>Quantization (fp8, int4)</td><td>Ağırlıkları daha az bitle saklama. Ucuzlatır ve hızlandırır, kaliteyi biraz düşürebilir.</td></tr>
+<tr><td>MoE (Mixture of Experts)</td><td>Her tokende modelin yalnızca bir kısmının çalıştığı mimari (ör. 122B toplam, ~10B aktif).</td></tr>
+<tr><td>Provider (sağlayıcı)</td><td>Modeli kendi sunucusunda çalıştırıp hizmet veren şirket.</td></tr>
+<tr><td>Ground truth</td><td>Doğruluğu kesin kabul edilen referans cevap.</td></tr>
+<tr><td>LLM-as-a-Judge</td><td>Bir LLM’in başka LLM çıktısını değerlendirmesi.</td></tr>
+<tr><td>Rubrik</td><td>Puanlama ölçütleri tablosu.</td></tr>
+<tr><td>Hallucination</td><td>Modelin kendinden emin şekilde uydurması.</td></tr>
+<tr><td>Knowledge cutoff</td><td>Modelin eğitim verisinin bittiği tarih.</td></tr>
+<tr><td>Greedy decoding</td><td>Her adımda en olası tokeni seçmek (T=0).</td></tr>
+<tr><td>Latency</td><td>İstek ile cevap arası süre.</td></tr>
+<tr><td>Rate limit</td><td>Birim zamanda izin verilen istek sayısı (429 hatası).</td></tr>
+<tr><td>Exponential backoff</td><td>Her başarısız denemede beklemeyi katlayarak tekrar denemek.</td></tr>
+<tr><td>Checkpoint</td><td>Ara sonuçları düzenli kaydetmek.</td></tr>
+<tr><td>Eval pipeline</td><td>Modelleri otomatik test eden uçtan uca sistem.</td></tr>
+</table></div>
+
+<p class="muted" style="margin-top:40px;font-size:.85rem">Fiyat, limit ve parametre adları OpenRouter’da zamanla değişir. Bu defterdeki sayılar 20.11.2026’da çekilen katalogdan veya rehberdeki örneklerden alınmıştır. Karar vermeden önce güncel değerleri <code>araclar/model_katalogu.py</code> ile tekrar çek.</p>
+</main>
+
+<script>
+// Temsili ilk-token logitleri; softmax(logit/T) + nucleus(top_p) görselleştirmesi
+const toks=[["Ankara",6.0],["Türkiye",3.6],["Başkent",3.0],["İstanbul",2.2],["Angora",0.9],["Bilmiyorum",0.4]];
+const tI=document.getElementById('t'),pI=document.getElementById('p'),bars=document.getElementById('bars'),chips=document.getElementById('chips');
+function dist(){
+  const T=+tI.value,P=+pI.value;
+  let pr;
+  if(T===0){pr=toks.map((_,i)=>i===0?1:0);}
+  else{const e=toks.map(([,l])=>Math.exp(l/T)),s=e.reduce((a,b)=>a+b,0);pr=e.map(x=>x/s);}
+  // nucleus: sırala, kümülatif P'ye ulaşana kadar tut
+  const idx=pr.map((p,i)=>i).sort((a,b)=>pr[b]-pr[a]);let c=0;const keep=new Set();
+  for(const i of idx){if(c>=P&&keep.size)break;keep.add(i);c+=pr[i];}
+  const ks=[...keep].reduce((a,i)=>a+pr[i],0);
+  return {pr,keep,fin:pr.map((p,i)=>keep.has(i)?p/ks:0),T,P};
+}
+function draw(){
+  const d=dist();
+  document.getElementById('tv').textContent=d.T.toFixed(2);
+  document.getElementById('pv').textContent=d.P.toFixed(2);
+  bars.innerHTML=toks.map(([n],i)=>`<div class="bar ${d.keep.has(i)?'':'cut'}"><span>${n}</span><div class="track"><div class="fill" style="width:${(d.fin[i]*100).toFixed(1)}%"></div></div><span>%${(d.fin[i]*100).toFixed(1)}</span></div>`).join('');
+}
+function sample(){
+  const d=dist();let out=[];
+  for(let k=0;k<10;k++){let r=Math.random(),c=0,j=0;for(;j<toks.length;j++){c+=d.fin[j];if(r<c)break;}out.push(toks[Math.min(j,toks.length-1)][0]);}
+  chips.innerHTML=out.map(x=>`<span class="chip">${x}</span>`).join('');
+}
+tI.oninput=pI.oninput=()=>{draw();chips.innerHTML='';};
+document.getElementById('s').onclick=sample;
+draw();
+// self-check: T=0 → Ankara %100; top_p=0.05 → tek token
+console.assert(dist().fin.reduce((a,b)=>a+b,0)>0.999,'olasılık toplamı 1 olmalı');
+</script>
+</body>
+</html>
