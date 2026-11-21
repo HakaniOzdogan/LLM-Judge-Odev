@@ -147,6 +147,15 @@ def excel():
             genis[f"{mk} | {a} | Doğruluk %"] = genis["No"].map(s["skor"])
     genis = genis[genis["No"].isin(h["soru_no"])]
 
+    # 1b) Teslim sayfası: rehberdeki birebir biçim — her model için "Cevabı" + "Doğruluk" (%), ilk deney ayarı (T=0)
+    a0 = sira_a[0]
+    teslim = veri[["Soru", "Ana Cevap"]].copy()
+    for i, mk in enumerate(sira_m, 1):
+        s = g[(g["kisa_ad"] == mk) & (g["ayar"] == a0)].set_index("soru_no")
+        teslim[f"Model {i} ({mk}) Cevabı"] = veri["No"].map(s["cevap_goster"])
+        teslim[f"Model {i} Doğruluk"] = veri["No"].map(s["skor"]).map(lambda x: "" if pd.isna(x) else f"%{x:.0f}")
+    teslim = teslim[veri["No"].isin(h["soru_no"])]
+
     # 2) Özet: model × ayar
     ozet = (h.groupby(["aile", "kademe", "kisa_ad", "ayar"], sort=False)
              .agg(ortalama_dogruluk=("skor", "mean"),
@@ -165,6 +174,10 @@ def excel():
     zorluk = h.pivot_table(index="kisa_ad", columns="Zorluk", values="skor", aggfunc="mean").reindex(index=sira_m).round(1)
 
     with pd.ExcelWriter(EXCEL, engine="openpyxl") as xw:
+        teslim.to_excel(xw, sheet_name=f"Teslim ({a0})", index=False)
+        bicimle(xw.sheets[f"Teslim ({a0})"], 24)
+        xw.sheets[f"Teslim ({a0})"].column_dimensions["A"].width = 45
+        xw.sheets[f"Teslim ({a0})"].freeze_panes = "C2"
         genis.to_excel(xw, sheet_name="Sonuçlar", index=False)
         bicimle(xw.sheets["Sonuçlar"], 22)
         xw.sheets["Sonuçlar"].column_dimensions["B"].width = 45

@@ -1,8 +1,7 @@
 # LLM Değerlendirme (LLM-as-a-Judge) ve A/B Testi — Gerekçeli Model Raporu
 
-> **Durum:** Taslak. Sayısal veriler 20.11.2026 tarihli tam deneyden (`sonuclar/sonuclar.xlsx`) alınmıştır.
-> ✍️ işaretli yerler yorum içindir; doldurulacak.
-> ⚠️ Deney, henüz kaynakla doğrulanmamış **taslak veri setiyle** (`veri/dataset_taslak.xlsx`) çalıştırıldı. Doğrulama sonrası Ana Cevap'ı değişen sorular olursa yalnızca hakem adımı yeniden çalıştırılmalıdır (bkz. §9).
+> Sayısal veriler 20.11.2026 tarihli tam deneyden (`sonuclar/sonuclar.xlsx`) alınmıştır.
+> ⚠️ Deney, Ana Cevapları henüz kaynakla tek tek doğrulanmamış **taslak veri setiyle** (`veri/dataset_taslak.xlsx`) çalıştırıldı. Doğrulama sonrası Ana Cevap'ı değişen sorular olursa yalnızca hakem adımı yeniden çalıştırılmalıdır (bkz. §9).
 
 ---
 
@@ -18,6 +17,9 @@
 | En yüksek doğruluk | qwen3.7-max %99.9 · mistral-medium-3.5 %99.4 |
 | En düşük doğruluk | ministral-8b %82.0 · qwen3.7-flash %91.2 |
 | En verimli (1.000 doğru cevap başına maliyet) | qwen3.7-flash $0.0025 · ministral-8b $0.0091 · qwen3.7-plus $0.0229 |
+| **Öneri** | **qwen3.7-plus, T = 0, top_p = 1** — en yüksek doğruluklu modellerle istatistiksel olarak eşit, onlardan 1.5–6 kat ucuz (§10) |
+
+**Ana bulgular:** (1) Doğruluğu belirleyen asıl etken model ailesi değil **fiyat/boyut kademesi**: kademeler arası fark 13.1 puan, aileler arası 3.2 puan. (2) Orta ve pahalı kademedeki 4 model arasındaki farklar istatistiksel olarak anlamlı değil. (3) temperature, doğruluğu en fazla ~3 puan düşürdü ama cevapların **%10–38'inin metnini değiştirdi**; etki en çok ucuz modellerde görüldü. (4) T = 1'de top_p = 0.5 kullanmak bu dalgalanmanın büyük kısmını geri aldı.
 
 ---
 
@@ -38,7 +40,7 @@
 - **Soru türleri:** 43 tek cevaplı, 43 sayısal/tarih, 14 çok parçalı (kısmi puan gerektiren: ör. Türkiye'nin 8 kara komşusu, Mimar Sinan'ın üç eseri).
 - **Bilinçli tuzaklar:** sık karıştırılan cevaplar (Avustralya → Kanberra, Brezilya → Brasília), referans tanımına bağlı sorular (Türkiye sınırları içinde doğup denize dökülen en uzun nehir → Kızılırmak), sayısal yuvarlama (Everest 8.849 m).
 - **Hakem Notu sütunu:** kabul edilebilir varyantları ve parça sayısını belirtir; hakem prompt'una eklenir.
-- ✍️ **Doğrulama:** her Ana Cevap'ın kaynağı `Kaynak` sütununa yazılacak.
+- **Doğrulama durumu:** Ana Cevaplar genel ansiklopedik bilgiye göre yazıldı; kaynaklar `Kaynak` sütununa işlenecek. Kaynaklarda farklı değerlerin geçtiği bilinen sorular (Amasya Genelgesi 21/22 Haziran, Hakan Şükür golü 10,8/11 sn) için kabul edilen varyantlar Hakem Notu'na yazıldı.
 
 ---
 
@@ -87,8 +89,6 @@ Her çağrıda sağlayıcı şu ayarlarla sabitlendi (`ayarlar.py → extra_body
 ```
 
 `require_parameters`, gönderilen temperature / top_p değerlerini uygulamayan bir sağlayıcıya isteğin düşmesini engeller. Deneydeki 2.400 cevabın tamamında cevabı beklenen sağlayıcının verdiği kaydedildi (`Ham Veri → saglayici`).
-
-> ✍️ Bu bölüm birlikte yürütülen seçim sürecinin kaydıdır; kendi ifadelerinle düzenle.
 
 ---
 
@@ -172,7 +172,19 @@ Prompt `ayarlar.py → HAKEM_PROMPT` içindedir. Özeti:
 - **Yanlış ek öğelere görece hoşgörü:** Türkiye'nin kara komşuları sorusunda 8 doğru ülkenin yanına 1–2 yanlış ülke (Lübnan, Ukrayna, İsrail, KKTC) ekleyen `ministral-8b` cevapları **75–88** aldı.
 - **Fazlalık metnin görmezden gelinmesi:** Bkz. §8.4 — doğru cevabın ardından alakasız 250 token üreten bir cevap 90 aldı.
 
-✍️ **Meta-değerlendirme (yapılacak):** Rastgele 20 cevap elle puanlanıp hakemin puanlarıyla karşılaştırılacak; uyum oranı buraya yazılacak.
+### 5.5 Hakemin kontrolü (meta-değerlendirme)
+
+Hakemin kendisi de hata yapabileceği için 20 cevaplık bir örneklem bağımsız olarak yeniden puanlandı. Örneklem sabit rastgele tohumla çekildi ve hakemin her kararını temsil edecek şekilde tabakalandı: hakemin 100 verdiği 12, 0 verdiği 5 ve kısmi puan verdiği 3 cevap. (Tabakalı olduğu için oranlar tüm veri setini birebir temsil etmez; hakemin zayıf olabileceği kısmi puanlar bilerek fazla temsil edildi.)
+
+| Ölçüt | Sonuç |
+|---|---|
+| Puanın birebir aynı olması | **17 / 20 (%85)** |
+| Doğru / yanlış kararının aynı olması (eşik 50) | **20 / 20 (%100)** |
+| Farklı çıkan 3 vaka | #32 "Mariana Çukuru" (×2) ve #81 "25 sayı": hakem 90, kontrol 100 |
+
+Ayrışan 3 vakanın üçü de aynı yönde: hakem, referanstaki **parantez içi ayrıntıyı veya ek koşulu** ("Challenger Derinliği", "en az 2 sayı farkla") zorunlu parça saydı ve 10 puan kırdı. Bu, ortalama doğruluğu ilgili modellerde en fazla birkaç onda bir puan düşürür; model sıralamasını ve doğru/yanlış kararlarını etkilemez. Düzeltmek için referanslarda yalnızca sorunun istediği kısım bırakılıp ayrıntı Hakem Notu'na taşınabilir.
+
+> Not: Bu kontrol, deneyin yürütülmesinde yardımcı olan yapay zekâ asistanı (Claude Opus 5.5) tarafından yapılmıştır; insan kontrolü değildir. Aynı 20 cevabın bir insan tarafından da puanlanması önerilir (örneklem `Ham Veri` sayfasından aynı satırlarla yeniden üretilebilir).
 
 ---
 
@@ -211,7 +223,7 @@ Prompt `ayarlar.py → HAKEM_PROMPT` içindedir. Özeti:
 - Kademe ortalamaları arasındaki aralık: **13.1 puan** (86.6 → 99.7).
 - Aile ortalamaları arasındaki fark: **3.2 puan** (93.2 – 96.4); bu farkın tamamına yakını ucuz kademeden geliyor (orta ve pahalıda aileler 98.2 / 99.4–99.9 ile neredeyse eşit).
 
-✍️ Yorum: aile mi, kademe mi daha belirleyici?
+**Yorum — kademe, aileden çok daha belirleyici.** Kademeler arasındaki 13.1 puanlık aralık, aileler arasındaki 3.2 puanlık farkın yaklaşık dört katı. Üstelik aile farkı yalnızca ucuz kademede ortaya çıkıyor: qwen3.7-flash ministral-8b'den 9.2 puan önde (T=0'da +8.8, anlamlı; §6.8). Orta kademede iki aile tam olarak eşit (98.2 – 98.2), pahalı kademede fark 0.5 puan. Yani ucuz modeller arasında aile seçimi önemli; bir eşiğin üstünde ise iki aile de bu soru setini neredeyse tamamen çözüyor. Orta → pahalı geçişi doğruluğu yalnızca 1.5 puan artırırken maliyeti Qwen'de ~4, Mistral'de ~4 kat artırıyor; getirinin en çok azaldığı adım bu.
 
 ### 6.4 Zorluğa göre (%)
 
@@ -285,9 +297,7 @@ Tüm modeller aynı 100 soruyu cevapladığı için farklar soru bazında eşle�
 | ministral-8b − mistral-medium | −17.9 | [−25.6, −10.6] | \* |
 | mistral-large − mistral-medium | −2.1 | [−5.1, 0.0] | |
 
-Anlamlı farkların hepsi **ucuz kademedeki iki modeli** içeriyor. Orta ve pahalı kademedeki 4 model arasındaki farklar bu veri setiyle ayırt edilemiyor.
-
-✍️ Yorum ve model kararı: §10.
+Anlamlı farkların hepsi **ucuz kademedeki iki modeli** içeriyor. Orta ve pahalı kademedeki 4 model arasındaki farklar bu veri setiyle ayırt edilemiyor. Model kararı: §10.
 
 ---
 
@@ -342,14 +352,19 @@ Anlamlı farkların hepsi **ucuz kademedeki iki modeli** içeriyor. Orta ve paha
 
 ### 7.5 Yorum
 
-✍️ Yapılacak. Bakılabilecek sorular:
-- temperature arttıkça doğruluk ve kararlılık nasıl değişti? Etki hangi modellerde büyük, hangilerinde ihmal edilebilir?
-- Model büyüklüğü/kademesi ile temperature hassasiyeti arasında bir ilişki var mı?
-- top_p = 0.5, T = 1'in etkisini nasıl değiştirdi? (Tanım gereği top_p düşük olasılıklı tokenleri eler.)
-- Cevap metninin değişmesi ile doğruluğun değişmesi arasındaki fark ne söylüyor?
-- Bu tür bilgi soruları için hangi ayar uygun?
+**1. temperature doğruluğu az, kararlılığı çok etkiledi.** T = 0'dan T = 1'e çıkınca doğruluktaki en büyük düşüş 2.9 puan (qwen3.7-flash); pahalı modellerde düşüş 0–1 puan. Tek tekrarlı 100 soruda bu büyüklükteki farklar şans sınırları içinde (§6.8'deki güven aralıkları ±3–7 puan genişliğinde). Buna karşılık aynı soruya verilen cevabın **metni** T = 1'de modele göre 10 ile 38 soruda değişti. Yani bilgi soruları için temperature, modelin "ne bildiğini" pek değiştirmiyor, "nasıl söylediğini" değiştiriyor: metni değişen 135 cevabın yalnızca 23'ünde puan değişti.
 
-Sınırlılık: Her ayar tek tekrarla çalıştırıldı; T > 0'daki farklar kısmen şans eseri olabilir (100 soruda 1 puan ≈ 1 soru). Kararlılığı daha güvenilir ölçmek için `ayarlar.py → TEKRAR = 3` ile yeniden çalıştırılabilir.
+**2. Hassasiyet kademeyle ters orantılı.** T = 1'de puanı değişen soru sayısı ucuz modellerde 8 (qwen-flash, ministral-8b), orta modellerde 1–6, pahalı modellerde 0–1. Bunun mekanizması temperature'ın tanımından geliyor: olasılıklar `softmax(logit / T)` ile hesaplanır. Büyük modeller bildikleri bir cevapta doğru tokene çok yüksek olasılık verir; T = 1 bu dağılımı düzleştirse de yanlış tokenin seçilme şansı yine çok düşük kalır. Küçük modellerde doğru cevabın olasılık avantajı daha zayıf olduğu için T = 1, §7.4'teki gibi yanlış bir tokenin seçilmesine ve cevabın oradan yoldan çıkmasına (206 → "306–310", Reşat Nuri → "Mehmet Rauf") yol açabiliyor. Örnekler, ilk tokende yapılan küçük bir sapmanın tamamen farklı bir bilgiye dönüştüğünü gösteriyor.
+
+**3. Metin değişimi her zaman bilgi kaybı değil.** mistral-medium-3.5 T = 0.7 ve T = 1'de 31–32 soruda farklı yazım kullandı ama yalnızca 1 soruda puanı değişti; değişiklikler "1071" / "1071 yılında" türünden ifade farkları. Bu model yüksek temperature'da çeşitli ama doğru konuşuyor. Ucuz modellerde ise metin değişimi daha sık bilgi değişimine dönüşüyor.
+
+**4. top_p, temperature'ın riskini büyük ölçüde geri aldı.** T = 1 sabitken top_p'yi 1.0'dan 0.5'e indirmek metni değişen soru sayısını üçte bir ile altıda bir arasına düşürdü (qwen-flash 38 → 14, ministral-8b 33 → 11, mistral-medium 31 → 5). Ucuz modellerin doğruluğu T = 0 seviyesine döndü (qwen-flash 88.1 → 92.7, ministral-8b 80.0 → 83.3). Bunun nedeni top_p'nin tanımı: olasılıklar büyükten küçüğe sıralanıp toplamı %50'ye ulaşan tokenler tutulur, gerisi atılır. T = 1'in yükselttiği düşük olasılıklı "kuyruk" tokenleri böylece hiç seçilemez. top_p bu anlamda yüksek temperature için bir emniyet kemeri işlevi görüyor.
+
+**5. T = 0 bile en iyi sonucu garanti etmiyor.** qwen3.7-flash T = 0.7'de T = 0'dan 2 puan yüksek aldı. T = 0, her adımda en olası tokeni seçer; en olası token ise her zaman doğru değildir. Bu fark anlamlılık sınırının içinde olduğu için "T = 0.7 daha iyidir" sonucu çıkarılamaz, ama T = 0'ın tek doğru ayar olmadığını gösteriyor.
+
+**Sonuç — bu tür bilgi soruları için önerilen ayar:** **T = 0, top_p = 1.** Doğruluk farkı küçük olsa da tutarlılık en yüksek, aynı soruya her seferinde aynı cevap alınıyor; bu, bir eval pipeline'ı ve kullanıcı güveni için önemli. Çeşitlilik gereken bir senaryoda (ör. cevabın farklı ifadelerle sunulması) T yükseltilecekse top_p ≤ 0.5 ile birlikte kullanılmalı; özellikle ucuz modellerde top_p'siz yüksek temperature yanlış bilgi riskini artırıyor.
+
+**Sınırlılık:** Her ayar tek tekrarla çalıştırıldı; T > 0'daki farklar kısmen şans eseri olabilir (100 soruda 1 puan ≈ 1 soru). Kararlılığı daha güvenilir ölçmek için `ayarlar.py → TEKRAR = 3` ile yeniden çalıştırılabilir (~$1.8).
 
 ---
 
@@ -400,7 +415,7 @@ Bazı sağlayıcıların K2.6 ve K3.1 Pro için sunduğu "bf16" seçeneği, orij
 - **Veri seti doğrulanmadı.** Deney taslak veri setiyle yapıldı. Bir Ana Cevap düzeltilirse cevaplar geçerliliğini korur; yalnızca `sonuclar/hakem_puanlari.csv` silinip `hakem.py` yeniden çalıştırılmalıdır (~$0.47). Soru metni değişirse o soru için `topla.py` da yeniden çalıştırılmalıdır.
 - **Tavan etkisi.** Orta ve pahalı kademedeki 4 model %98–100 aldı; aralarındaki farklar bu veri setiyle anlamlı değil (§6.8). Ayırt etmek için daha zor sorular gerekir.
 - **Tek tekrar.** T > 0 ayarlarında her soru bir kez soruldu; kararlılık ölçümü T=0 cevabıyla karşılaştırmaya dayanıyor.
-- **Tek hakem.** Puanlar tek bir hakem modele bağlı; §5.4'teki eğilimler (parantez içi bilgiyi zorunlu sayma, yanlış ek öğelere hoşgörü) bazı puanları etkilemiş olabilir. Elle meta-değerlendirme henüz yapılmadı.
+- **Tek hakem.** Puanlar tek bir hakem modele bağlı; §5.4'teki eğilimler (parantez içi bilgiyi zorunlu sayma, yanlış ek öğelere hoşgörü) bazı puanları etkilemiş olabilir. 20 cevaplık kontrol (§5.5) doğru/yanlış kararlarında tam uyum gösterdi, ancak bu kontrol insan tarafından değil yapay zekâ asistanı tarafından yapıldı.
 - **Türkçe.** Sorular Türkçe ve önemli kısmı Türkiye'ye özgü; sonuçlar İngilizce veya genel bilgi sorularına doğrudan genellenemez.
 - **Sağlayıcı bilgisi.** Alibaba ve Mistral quantization formatını açıklamıyor ("unknown").
 
@@ -408,10 +423,28 @@ Bazı sağlayıcıların K2.6 ve K3.1 Pro için sunduğu "bf16" seçeneği, orij
 
 ## 10. Karar ve Öneri
 
-✍️ Yapılacak. Bakılabilecek sorular:
-- Bu proje için hangi model + ayar uygun? Doğruluk mu, maliyet mi, hız mı öncelikli?
-- §6.2'deki "1.000 doğru cevap başına maliyet" ve §6.8'deki anlamlılık sonuçları bu kararı nasıl destekliyor?
-- Hangi koşulda karar değişir (ör. bütçe 10 kat artarsa, cevap süresi kritikse, sorular İngilizce olursa)?
+### Önerilen: `qwen/qwen3.7-plus` · temperature = 0 · top_p = 1
+
+**Gerekçe:**
+1. **Doğrulukta en iyilerle eşit.** T = 0'da %98.9. qwen3.7-max (%99.9), mistral-medium-3.5 (%100) ve mistral-large (%97.9) ile arasındaki farklar istatistiksel olarak anlamlı değil (§6.8: −1.0 [−3.2, 0.2], −1.1 [−3.2, 0.0], +1.0 [−2.1, 4.7]). Bu veri setinde "en iyi" dört model ayırt edilemiyor; bu durumda karar maliyete göre verilmeli.
+2. **Bu dört model içinde en ucuzu.** 1.000 doğru cevap başına $0.023 — mistral-large'dan 1.4 kat, qwen3.7-max'tan 4.3 kat, mistral-medium-3.5'ten 5.7 kat ucuz. Ölçeklendiğinde fark büyüyor: 1 milyon soru için yaklaşık $22 (plus), $32 (large), $97 (max), $130 (medium).
+3. **Kararlı.** T = 0'da tutarlı; T yükseltildiğinde bile puanı değişen soru sayısı düşük (≤ 6 / 100).
+4. **Pratik.** Ortalama 1.3 saniye cevap süresi, tek sağlayıcı (Alibaba), 2.400 çağrıda kalıcı hata yok.
+
+**Önerilmeyenler:**
+- **ministral-8b** — %82 doğruluk, en yüksek sıfır puan oranı (%17.3), Türkiye'ye özgü edebiyat ve spor sorularında belirgin zayıflık (%67 / %72), Markdown biçimine kayma ve yüksek temperature'da bilgi değişimi. Ucuz olması (1.000 doğru cevap başına $0.009) bu hata oranını telafi etmiyor; aynı kademede qwen3.7-flash hem daha ucuz hem 9 puan daha doğru.
+- **qwen3.7-max / mistral-medium-3.5** — doğrulukları en yüksek ama plus/large'a göre ölçülebilir bir kazanç sağlamadan 4–6 kat daha pahalılar.
+
+### Hangi koşulda karar değişir?
+
+| Koşul | Tercih | Neden |
+|---|---|---|
+| Hatanın maliyeti çok yüksek (tek bir yanlış bile kabul edilemez) | **qwen3.7-max** | Hiç sıfır puanı yok (%0), ortalama %99.9; maliyet farkı mutlak olarak hâlâ küçük |
+| Cevap süresi kritik (canlı sohbet) | **mistral-large** veya **mistral-medium-3.5** | 0.77 s ve 0.50 s ile en hızlı yüksek doğruluklu modeller (plus 1.34 s) |
+| Bütçe çok kısıtlı, hatalar sonradan kontrol edilebilir | **qwen3.7-flash** | %91 doğruluk, 1.000 doğru cevap başına $0.0025 — plus'tan 9 kat ucuz |
+| Bütçe 10 kat artarsa | **qwen3.7-max** | Ek maliyet önemsizleşir; zor sorulardaki %100 başarı ve sıfır hata öne çıkar |
+| Sorular İngilizce veya genel dünya bilgisi olursa | Yeniden test edilmeli | Zorlanılan soruların çoğu Türkiye'ye özgüydü (§6.7); ucuz modellerin İngilizcede farkı kapatması beklenebilir ama bu deneyde ölçülmedi |
+| Daha zor sorular | Yeniden test edilmeli | Mevcut set orta/pahalı modeller için tavanda; zor sorularda bile plus ile max arasında 5 puan fark vardı (94.7 – 100), daha zor bir sette bu fark büyüyebilir |
 
 ---
 
