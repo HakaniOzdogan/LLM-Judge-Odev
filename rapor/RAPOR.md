@@ -7,6 +7,8 @@
 
 ## 1. Özet
 
+📊 **Grafikli karne:** [`rapor/model_karnesi.html`](model_karnesi.html) — sıralama, fiyat–doğruluk, kategori ısı haritası, temperature etkisi ve her modelin artı/eksileri. İnternetsiz açılır; GitHub'da dosyayı indirip (Download raw file) tarayıcıda açın.
+
 İki model ailesinden (Qwen, Mistral) ucuz / orta / pahalı kademede **6 model**, 100 soruluk Türkçe bilgi seti üzerinde **4 farklı temperature / top_p ayarıyla** test edildi (2.400 cevap). Her cevap, test edilen ailelerin dışından seçilen bir hakem model (`openai/gpt-4.1-mini`, temperature = 0) tarafından referans cevaba göre 0–100 arasında puanlandı (2.400 puan).
 
 | | |
