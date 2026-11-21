@@ -1,7 +1,7 @@
 # LLM-as-a-Judge ve A/B Testi Ödevi
 
 📄 **Rapor:** [rapor/RAPOR.md](rapor/RAPOR.md) — 6 model (Qwen, Mistral × ucuz/orta/pahalı), 100 soru, 4 temperature/top_p ayarı, hakem: gpt-4.1-mini
-📊 **Grafikli karne:** [rapor/model_karnesi.html](rapor/model_karnesi.html) (indirip tarayıcıda açın) · 📈 **Karşılaştırma Excel'i:** [sonuclar/model_karsilastirma.xlsx](sonuclar/model_karsilastirma.xlsx)
+📊 **Grafikli karne (tarayıcıda açılır):** https://hakaniozdogan.github.io/LLM-Judge-Odev/rapor/model_karnesi.html · 📈 **Karşılaştırma Excel'i:** [sonuclar/model_karsilastirma.xlsx](sonuclar/model_karsilastirma.xlsx)
 
 ## Kurulum (bir kez)
 ```
