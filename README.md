@@ -1,5 +1,7 @@
 # LLM-as-a-Judge ve A/B Testi Ödevi
 
+📄 **Rapor:** [rapor/RAPOR.md](rapor/RAPOR.md) — 6 model (Qwen, Mistral × ucuz/orta/pahalı), 100 soru, 4 temperature/top_p ayarı, hakem: gpt-4.1-mini
+
 ## Kurulum (bir kez)
 ```
 python -m venv .venv            # (zaten kurulu)
